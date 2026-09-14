@@ -36,11 +36,6 @@ export interface MovimentacoesQueryParams {
   status?: StatusAprovacao;
 }
 
-export interface CreateMovimentacaoResponse {
-  correlationId: string;
-  status: "SUBMITTED";
-}
-
 export const TIPO_MOVIMENTACAO_LABEL: Record<TipoMovimentacao, string> = {
   MUDANCA_GESTOR: "Mudança de Gestor",
   ALTERACAO_SALARIAL: "Alteração Salarial / Promoção",

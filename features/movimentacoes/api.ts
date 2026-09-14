@@ -1,12 +1,11 @@
-import { apiFetch, ApiError } from "@/lib/api/http";
-import type {
-  Colaborador,
-  CreateMovimentacaoResponse,
-  MovimentacoesQueryParams,
-  MovimentacoesResponse,
-  NovaMovimentacaoFormValues,
-} from "./types";
+import { ApiError } from "@/lib/api/http";
+import type { Colaborador, MovimentacoesQueryParams, MovimentacoesResponse } from "./types";
 
+/**
+ * Busca movimentações via proxy server-side local (app/api/movimentacoes).
+ * Hoje retorna uma lista vazia (stub) até existir um backend real por trás
+ * do webhook n8n para esta consulta.
+ */
 export async function fetchMovimentacoes(
   params: MovimentacoesQueryParams
 ): Promise<MovimentacoesResponse> {
@@ -17,9 +16,23 @@ export async function fetchMovimentacoes(
   if (params.search) query.set("search", params.search);
   if (params.status) query.set("status", params.status);
 
-  return apiFetch<MovimentacoesResponse>(`/api/v1/movimentacoes?${query.toString()}`, {
+  const response = await fetch(`/api/movimentacoes?${query.toString()}`, {
     method: "GET",
+    headers: { Accept: "application/json" },
   });
+
+  if (!response.ok) {
+    let message = `Falha ao buscar movimentações (HTTP ${response.status})`;
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      // corpo sem JSON, ignora
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  return (await response.json()) as MovimentacoesResponse;
 }
 
 /**
@@ -47,30 +60,4 @@ export async function fetchColaboradores(search: string): Promise<Colaborador[]>
   }
 
   return (await response.json()) as Colaborador[];
-}
-
-/**
- * Monta multipart/form-data: campo "payload" com o JSON estruturado e os
- * anexos em campos próprios, conforme esperado pelo workflow n8n.
- */
-function buildMovimentacaoFormData(values: NovaMovimentacaoFormValues): FormData {
-  const { offerLetter, creqEreq, justificativaAnexo, ...rest } = values;
-
-  const formData = new FormData();
-  formData.append("payload", JSON.stringify(rest));
-
-  offerLetter.forEach((file) => formData.append("offerLetter", file, file.name));
-  creqEreq.forEach((file) => formData.append("creqEreq", file, file.name));
-  justificativaAnexo.forEach((file) => formData.append("justificativaAnexo", file, file.name));
-
-  return formData;
-}
-
-export async function createMovimentacao(
-  values: NovaMovimentacaoFormValues
-): Promise<CreateMovimentacaoResponse> {
-  return apiFetch<CreateMovimentacaoResponse>("/api/v1/movimentacoes", {
-    method: "POST",
-    body: buildMovimentacaoFormData(values),
-  });
 }

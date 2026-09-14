@@ -27,9 +27,11 @@ export function StepColaborador() {
     setValue("colaboradorId", colaborador.id, { shouldValidate: true, shouldDirty: true });
     setValue("colaboradorNome", colaborador.nome, { shouldValidate: true });
     setValue("colaboradorMatricula", colaborador.matricula, { shouldValidate: true });
+    setValue("empresa", colaborador.empresa);
     setValue("plantaAtual", colaborador.planta, { shouldValidate: true });
     setValue("cargoAtual", colaborador.cargoAtual);
     setValue("centroCustoAtual", colaborador.centroCustoAtual);
+    setValue("gestorAtualId", colaborador.gestorId);
     setValue("salarioAtual", colaborador.salarioAtual);
   }
 

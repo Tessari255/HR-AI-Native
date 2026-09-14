@@ -14,6 +14,7 @@ interface ColaboradorDTO {
   id: string;
   nome: string;
   matricula: string;
+  empresa: string;
   cargoAtual: string;
   centroCustoAtual: string;
   planta: string;
@@ -95,6 +96,7 @@ async function fetchFromMock(query: string): Promise<ColaboradorDTO[]> {
       id: `${item.empresa}:${item.matricula}`,
       nome: `Colaborador ${item.matricula}`,
       matricula: item.matricula,
+      empresa: item.empresa,
       cargoAtual: item.cargo ?? "—",
       centroCustoAtual: item.centroCusto ?? "—",
       planta: item.area ?? "—",
@@ -175,6 +177,7 @@ function aggregateServiceNowRecords(records: ServiceNowDivergenciaRecord[]): Col
       id: key,
       nome: `Colaborador ${matricula}`,
       matricula,
+      empresa,
       cargoAtual: "—",
       centroCustoAtual: "—",
       planta: "—",

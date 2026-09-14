@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm } from "react-hook-form";
 import { ArrowLeft, ArrowRight, Loader2, Send } from "lucide-react";
+import { useEnviarMovimentacao } from "@/features/ingestao-bff/hooks/use-enviar-movimentacao";
+import { useCurrentGestor } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { useCreateMovimentacao } from "../hooks/use-create-movimentacao";
+import { buildIngestaoInputs } from "../ingestao-mapper";
 import { getStepFields, novaMovimentacaoSchema } from "../schemas";
 import type { NovaMovimentacaoInput } from "../schemas";
 import { StepColaborador } from "./wizard/step-colaborador";
@@ -25,9 +27,11 @@ const defaultValues = {
   colaboradorId: "",
   colaboradorNome: "",
   colaboradorMatricula: "",
+  empresa: "",
   plantaAtual: "",
   cargoAtual: "",
   centroCustoAtual: "",
+  gestorAtualId: "",
   salarioAtual: undefined,
   novoGestorId: "",
   novoGestorNome: "",
@@ -48,7 +52,9 @@ const defaultValues = {
 export function NewMovimentacaoWizard() {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const createMovimentacao = useCreateMovimentacao();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const enviarMovimentacao = useEnviarMovimentacao();
+  const { email: solicitanteEmail } = useCurrentGestor();
 
   const form = useForm<NovaMovimentacaoInput>({
     resolver: zodResolver(novaMovimentacaoSchema),
@@ -60,6 +66,7 @@ export function NewMovimentacaoWizard() {
   const stepFields = getStepFields(tipo);
   const StepComponent = STEP_COMPONENTS[step] ?? StepTipo;
   const isLastStep = step === TOTAL_STEPS - 1;
+  const isBusy = isSubmitting || enviarMovimentacao.isPending;
 
   async function handleNext() {
     const fields = stepFields[step] ?? [];
@@ -72,15 +79,28 @@ export function NewMovimentacaoWizard() {
     setStep((current) => Math.max(current - 1, 0));
   }
 
-  function onValid(values: NovaMovimentacaoInput) {
+  // Cada atributo alterado vira uma chamada própria a enviarMovimentacao()
+  // (correlationId/Idempotency-Key próprios), pois o contrato do webhook
+  // n8n aceita uma mudança de atributo por requisição. Envia em sequência e
+  // para no primeiro erro — o hook já notifica a falha via toast.
+  async function onValid(values: NovaMovimentacaoInput) {
     const parsed = novaMovimentacaoSchema.parse(values);
-    createMovimentacao.mutate(parsed, {
-      onSuccess: () => {
-        form.reset(defaultValues);
-        setStep(0);
-        router.push("/");
-      },
-    });
+    const inputs = buildIngestaoInputs(parsed, solicitanteEmail);
+
+    setIsSubmitting(true);
+    try {
+      for (const input of inputs) {
+        await enviarMovimentacao.mutateAsync(input);
+      }
+    } catch {
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
+
+    form.reset(defaultValues);
+    setStep(0);
+    router.push("/");
   }
 
   return (
@@ -99,15 +119,15 @@ export function NewMovimentacaoWizard() {
               type="button"
               variant="ghost"
               onClick={step === 0 ? () => router.push("/") : handleBack}
-              disabled={createMovimentacao.isPending}
+              disabled={isBusy}
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               {step === 0 ? "Cancelar" : "Voltar"}
             </Button>
 
             {isLastStep ? (
-              <Button type="submit" disabled={createMovimentacao.isPending}>
-                {createMovimentacao.isPending ? (
+              <Button type="submit" disabled={isBusy}>
+                {isBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 ) : (
                   <Send className="h-4 w-4" aria-hidden />

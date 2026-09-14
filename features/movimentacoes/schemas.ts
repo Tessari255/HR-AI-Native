@@ -18,6 +18,7 @@ export const colaboradorSchema = z.object({
   id: z.string(),
   nome: z.string(),
   matricula: z.string(),
+  empresa: z.string(),
   cargoAtual: z.string(),
   centroCustoAtual: z.string(),
   planta: z.string(),
@@ -83,9 +84,11 @@ export const novaMovimentacaoSchema = z
     colaboradorId: z.string().min(1, "Selecione um colaborador"),
     colaboradorNome: z.string().min(1),
     colaboradorMatricula: z.string().min(1),
+    empresa: z.string().optional(),
     plantaAtual: z.string().min(1),
     cargoAtual: z.string().optional(),
     centroCustoAtual: z.string().optional(),
+    gestorAtualId: z.string().optional(),
     salarioAtual: z.number().optional(),
 
     // Passo 3 — Dados da movimentação (campos por tipo)
