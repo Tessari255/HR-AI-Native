@@ -49,3 +49,24 @@ lib/
 - Anexo obrigatório conforme o tipo: offer letter para alteração salarial, C-req/E-req para transferência de CC.
 - Data de vigência não pode retroagir mais de 15 dias.
 - Anexos aceitam apenas PDF/PNG, até 5MB cada.
+
+## [A] Ingestão BFF — envio direto ao webhook n8n
+
+`features/ingestao-bff/` é uma integração independente do wizard acima: envia
+JSON estrito (`POST`) diretamente para o webhook n8n configurado em
+`NEXT_PUBLIC_N8N_WEBHOOK_URL`, com header `Idempotency-Key` (UUID v4, um por
+tentativa de submissão).
+
+- `schemas.ts` / `types.ts` — schema Zod e tipos do `MovimentacaoPayload`
+  (`correlationId`, `matricula`, `empresa`, `tipo` em
+  `DIVERGENTE | PROMOCAO | TRANSFERENCIA | AJUSTE`, `atributo`,
+  `valorAnterior`, `valorNovo`, `dataReferencia`, `solicitanteEmail`).
+- `api.ts` — `enviarMovimentacao(input)`: gera `correlationId`/`Idempotency-Key`,
+  valida o payload e normaliza qualquer resposta não-202 em
+  `MovimentacaoIngestaoError` (status/code tipados: `VALIDATION_ERROR` 400,
+  `CONFLICT` 409, `BUSINESS_RULE_VIOLATION` 422, `SERVICE_UNAVAILABLE` 503,
+  `NETWORK_ERROR`, `CONFIG_MISSING`).
+- `hooks/use-enviar-movimentacao.ts` — mutation reutilizável (TanStack Query)
+  com toast diferenciado por código de erro; em sucesso retorna
+  `{ correlationId, status: "ACCEPTED" }`. Limpar o formulário é
+  responsabilidade do chamador: `mutate(values, { onSuccess: () => form.reset() })`.
