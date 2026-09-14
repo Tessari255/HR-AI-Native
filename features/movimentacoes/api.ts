@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api/http";
+import { apiFetch, ApiError } from "@/lib/api/http";
 import type {
   Colaborador,
   CreateMovimentacaoResponse,
@@ -22,11 +22,31 @@ export async function fetchMovimentacoes(
   });
 }
 
+/**
+ * Busca colaboradores via proxy server-side local (app/api/colaboradores),
+ * que por sua vez consulta o ServiceNow (ou o mock, conforme env vars) sem
+ * expor credenciais ao client. Não usa apiFetch: essa rota é própria do
+ * Next.js, não do BFF externo (NEXT_PUBLIC_API_URL).
+ */
 export async function fetchColaboradores(search: string): Promise<Colaborador[]> {
-  const query = new URLSearchParams({ search });
-  return apiFetch<Colaborador[]>(`/api/v1/colaboradores?${query.toString()}`, {
+  const query = new URLSearchParams({ q: search });
+  const response = await fetch(`/api/colaboradores?${query.toString()}`, {
     method: "GET",
+    headers: { Accept: "application/json" },
   });
+
+  if (!response.ok) {
+    let message = `Falha ao buscar colaboradores (HTTP ${response.status})`;
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      // corpo sem JSON, ignora
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  return (await response.json()) as Colaborador[];
 }
 
 /**
